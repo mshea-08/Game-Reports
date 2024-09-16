@@ -31,10 +31,11 @@ fuzz ='#40f786'
 ###############################################################################
 ######################### Game Specs ##########################################
 ###############################################################################
-game = 'VCatScranton' 
+# Enter game folder. 
+game = '' 
 
 # Set first half direction of play as 'LtoR' or 'RtoL'.
-directionofplay = 'RtoL'
+directionofplay = ''
 
 # Location of the goal mouth based on the first half direction of play.
 gmx = 120
@@ -46,18 +47,23 @@ gmy = 40
 
 ######################### Main Dataframe ######################################
 # Download xlsx as dataframe.
-# What should I name the file generally?
 df = pd.read_excel(game + '/GameData.xlsx')
 
-# ONLY FOR SCRIMMAGES
+# This is for scrimmages that play 3 periods instead of two halfs. First half data
+# becomes 1st and 3rd periods.
 df.loc[df['half'] == 3, 'half'] = 1
+
+# To denote an offsides pass while tagging, I'll tag the pass detail as incomplete 
+# and the surface as foot (surface is empty for typical passes). This code switches them
+# so the detail becomes offsides.
+df.loc[(df['event'] == 'pass') & (df['surface'] == 'foot'), 'detail'] = 'offsides'
 
 # Flip y-coordinates (always have to do this).
 df['y1'] = 80 - df['y1']
 df['y2'] = 80 - df['y2']
 
-# Ultimately, all play will run from left to right. This sets it, depending on 
-# first half direction.
+# Ultimately, all play visuals will run from left to right unless it's the shot or crosses
+# maps. 
 if directionofplay == 'LtoR':
     # Flip second half data to match first half data
     df.loc[df['half'] == 2, 'y1'] = 80 - df['y1']
@@ -70,9 +76,49 @@ elif directionofplay == 'RtoL':
     df.loc[df['half']== 1, 'x1'] = 120 - df['x1']
     df.loc[df['half'] == 1, 'y2'] = 80 - df['y2']
     df.loc[df['half']==1, 'x2'] = 120 - df['x2']
+
+# Make seq1 col, which equals 1 when there is a dispossession.
+df.loc[(df['detail'] == 'incomplete') | (df['detail'] == 'blocked') | (df['event'] == 'ball lost') | (df['event'] == 'shot') | (df['event'] == 'free kick shot') | (df['detail'] == 'offsides'),'seq1'] = 1
+
+# Creates a sequence column.
+df['seq'] = df['seq1'].cumsum() - df['seq1']
+
+# Add starting and ending zone to events. 
+df.loc[((df['x1'] <= 30) & (df['y1'] > 53.33)),'zone start'] = 1
+df.loc[((df['x1'] <= 30) & (df['y1'] <= 53.33) & (df['y1'] > 26.67)),'zone start'] = 2
+df.loc[((df['x1'] <= 30) & (df['y1'] <= 26.67)),'zone start'] = 3
+
+df.loc[((df['x1'] > 30) & (df['x1'] <= 60) & (df['y1'] > 53.33)),'zone start'] = 4
+df.loc[((df['x1'] > 30) & (df['x1'] <= 60)  & (df['y1'] <= 53.33) & (df['y1'] > 26.67)),'zone start'] = 5
+df.loc[((df['x1'] > 30) & (df['x1'] <= 60)  & (df['y1'] <= 26.67)),'zone start'] = 6
+
+df.loc[((df['x1'] > 60) & (df['x1'] <= 90) & (df['y1'] > 53.33)),'zone start'] = 7
+df.loc[((df['x1'] > 60) & (df['x1'] <= 90)  & (df['y1'] <= 53.33) & (df['y1'] > 26.67)),'zone start'] = 8
+df.loc[((df['x1'] > 60) & (df['x1'] <= 90)  & (df['y1'] <= 26.67)),'zone start'] = 9
+    
+df.loc[((df['x1'] > 90) & (df['y1'] > 53.33)),'zone start'] = 10
+df.loc[((df['x1'] > 90) & (df['y1'] <= 53.33) & (df['y1'] > 26.67)),'zone start'] = 11
+df.loc[((df['x1'] > 90) & (df['y1'] <= 26.67)),'zone start'] = 12  
+
+df.loc[((df['x2'] <= 30) & (df['y2'] > 53.33)),'zone end'] = 1
+df.loc[((df['x2'] <= 30) & (df['y2'] <= 53.33) & (df['y2'] > 26.67)),'zone end'] = 2
+df.loc[((df['x2'] <= 30) & (df['y2'] <= 26.67)),'zone end'] = 3
+
+df.loc[((df['x2'] > 30) & (df['x2'] <= 60) & (df['y2'] > 53.33)),'zone end'] = 4
+df.loc[((df['x2'] > 30) & (df['x2'] <= 60)  & (df['y2'] <= 53.33) & (df['y2'] > 26.67)),'zone end'] = 5
+df.loc[((df['x2'] > 30) & (df['x2'] <= 60)  & (df['y2'] <= 26.67)),'zone end'] = 6
+
+df.loc[((df['x2'] > 60) & (df['x2'] <= 90) & (df['y2'] > 53.33)),'zone end'] = 7
+df.loc[((df['x2'] > 60) & (df['x2'] <= 90)  & (df['y2'] <= 53.33) & (df['y2'] > 26.67)),'zone end'] = 8
+df.loc[((df['x2'] > 60) & (df['x2'] <= 90)  & (df['y2'] <= 26.67)),'zone end'] = 9
+    
+df.loc[((df['x2'] > 90) & (df['y2'] > 53.33)),'zone end'] = 10
+df.loc[((df['x2'] > 90) & (df['y2'] <= 53.33) & (df['y2'] > 26.67)),'zone end'] = 11
+df.loc[((df['x2'] > 90) & (df['y2'] <= 26.67)),'zone end'] = 12  
     
 
 ######################## Crosses Dataframe ####################################
+
 # Create a df of just crosses.
 df_crosses = df.loc[df['event'] == 'cross']
 df_crosses = df_crosses.reset_index(drop=True)
@@ -95,12 +141,9 @@ df_shots = df_shots.reset_index(drop=True)
 df_shots['x1adjusted'] = 120 - df_shots['x1']
 df_shots['y1adjusted'] = 80 - df_shots['y1']
 
-
-
 # Make first half shots happen on left goal.
 df_shots.loc[df_shots['half'] == 1,'x1'] = 120 - df_shots['x1']
 df_shots.loc[df_shots['half'] == 1,'y1'] = 80 - df_shots['y1']
-
 
 # Add columns necessary for xG model.
 df_shots['a'] = np.sqrt((df_shots['x1adjusted'])**2+(df_shots['y1adjusted']-44)**2)
@@ -108,6 +151,11 @@ df_shots['b'] = np.sqrt((df_shots['x1adjusted'])**2+(df_shots['y1adjusted']-36)*
 df_shots['cos theta'] = (df_shots['a']**2+df_shots['b']**2-64)/(2*df_shots['a']*df_shots['b'])
 df_shots['theta'] = np.arccos(df_shots['cos theta'])
 df_shots['distance'] = np.sqrt((df_shots['x1adjusted'])**2+(df_shots['y1adjusted']-40)**2)
+
+# Make df of shots on target, off target, and goals.
+df_shots_ontarget = df_shots.loc[df_shots['detail'] == 'on target']
+df_shots_goal = df_shots.loc[df_shots['detail'] == 'goal']
+df_shots_offtarget = df_shots.loc[df_shots['detail'] == 'off target']
 
 ######################### Passes and crosses Dataframe ########################
 # Create a df of passes and crosses.
@@ -118,6 +166,16 @@ df_pass = df_pass.reset_index(drop=True)
 df_passcomplete = df_pass.loc[df_pass['detail'] == 'complete']
 df_passcomplete = df_passcomplete.reset_index(drop=True)
 
+# Add pass length 
+df_pass['pass_distance'] = np.sqrt((df_pass['x2'] - df_pass['x1'])**2 + (df_pass['y2'] - df_pass['y1'])**2)
+
+#manually defining bins for pass lengths. using FB Ref bins
+bins = [0, 15, 30, np.inf]  #short, medium, long
+labels = ['short', 'medium', 'long']
+
+#creates a new column that categorizes each pass in 'pass_distance' into the bins, and labeling them "short," "medium," or "long".
+df_pass['pass_type'] = pd.cut(df_pass['pass_distance'], bins=bins, labels=labels, right=False) #pd.cut --> "categorize". right = False excludes right endpoint. e.g., [5, 15) will include x >= 5 and x < 15.
+
 ######################## Dribbles Dataframe ###################################
 # Create a df of dribbles.
 df_dribble = df.loc[(df['event'] == 'dribble')]
@@ -127,16 +185,6 @@ df_dribble = df_dribble.reset_index(drop=True)
 df_dribblecomplete = df_dribble.loc[df_dribble['detail'] == 'complete']
 df_dribblecomplete = df_dribblecomplete.reset_index(drop=True)
 
-######################## Sequence Dataframe ###################################
-# First add a column of all zeros.
-df['seq1'] = 0
-
-# Make seq1 col equal to 1 when there is a dispossession. 
-df.loc[(df['detail'] == 'incomplete') | (df['detail'] == 'blocked') | (df['event'] == 'ball lost') | (df['event'] == 'shot') | (df['event'] == 'free kick shot'),'seq1'] = 1
-
-# Create final seq column.
-df['seq'] = df['seq1'].cumsum() - df['seq1']
-    
 
 ###############################################################################
 ######################### Shots Visuals #######################################
@@ -147,39 +195,26 @@ df['seq'] = df['seq1'].cumsum() - df['seq1']
 # three seasons. This model does NOT automatically update. I will incorporate this 
 # feature later. 
 
-def calculate_xG(sh):    
-   xG = 1-1/(1+np.exp(-0.3454-0.0924*sh['distance']+0.2863*sh['theta'])) 
+def calculate_xG(dist,theta):    
+   xG = 1-1/(1+np.exp(-0.3454-0.0924*dist+0.2863*theta)) 
    return xG  
+
+# Add xG column to dataframe
+df_shots['xG'] = calculate_xG(df_shots['distance'],df_shots['theta'])
 
 ######################### xG Shot Map #########################################
 # Shot map 1 plots shots proportionally to their xG. It also computes total xG for 
 # each half. 
 
+half1_xG = df_shots.loc[(df_shots['half'] == 1) & (df_shots['detail'] != 'blocked'), 'xG'].sum()
+half2_xG = df_shots.loc[(df_shots['half'] == 2) & (df_shots['detail'] != 'blocked'), 'xG'].sum()
+tot_xG = half1_xG + half2_xG
+
 # Create plot.
 (fig,ax) = createPitch(120,80,'yards','gray')
-tot_xG = 0
-half1_xG = 0
-half2_xG = 0
-for i,shot in df_shots.iterrows():
-    # For now I am not including blocked shots. I am unsure what to do with them.
-    if shot['detail'] != 'blocked' and shot['event'] != 'free kick shot':
-        y1 = shot['y1']
-        x1 = shot['x1']
-        # The variable tot_xG is calculating the cumulative xG.
-        tot_xG += calculate_xG(shot)
-        if shot['half'] == 1:
-            half1_xG += calculate_xG(shot)
-        else:
-            half2_xG += calculate_xG(shot)
-        if shot['detail'] == 'off target':
-            # Off taget shots are hollow triangle
-            ax.scatter(x1,y1,s=400*calculate_xG(shot), marker='v',edgecolor=disco,facecolor='none',zorder=50)  
-        elif shot['detail'] == 'on target':
-            # On target shots are filled triangle
-                ax.scatter(x1,y1,s=400*calculate_xG(shot), marker='v',color=disco,zorder=75)
-        elif shot['detail'] == 'goal':
-            # Goals are yellow star
-            ax.scatter(x1,y1,s=400*calculate_xG(shot), marker='*',color=buttercup,zorder=100)
+ax.scatter(df_shots_offtarget['x1'],df_shots_offtarget['y1'],s=400*calculate_xG(df_shots_offtarget['distance'], df_shots_offtarget['theta']), marker='v',edgecolor=disco,facecolor='none',zorder=50)  
+ax.scatter(df_shots_ontarget['x1'],df_shots_ontarget['y1'],s=400*calculate_xG(df_shots_ontarget['distance'], df_shots_ontarget['theta']), marker='v',edgecolor=disco,facecolor=disco,zorder=50)  
+ax.scatter(df_shots_goal['x1'],df_shots_goal['y1'],s=400*calculate_xG(df_shots_goal['distance'], df_shots_goal['theta']), marker='v',edgecolor=disco,facecolor='none',zorder=50)  
 
 ax.scatter(5,5,s=50, marker='v',color='grey',facecolor='none',zorder=50)
 ax.scatter(5,10,s=50, marker='v',color='grey',zorder=50)
@@ -198,91 +233,33 @@ plt.show()
 ######################### Surface Shot Map ####################################
 # Shot map 2 plots shots accoring to the surface used (foot, head, volley).
 
+# Count occurances 
+foot = len(df_shots.loc[(df_shots['surface'] == 'foot')])
+foot_ongoal = len(df_shots.loc[(df_shots['surface'] == 'foot') & ((df_shots['detail'] == 'on target') | (df_shots['detail'] == 'goal'))])
+
+head = len(df_shots.loc[(df_shots['surface'] == 'head')])
+head_ongoal = len(df_shots.loc[(df_shots['surface'] == 'head') & ((df_shots['detail'] == 'on target') | (df_shots['detail'] == 'goal'))])
+
+volley = len(df_shots.loc[(df_shots['surface'] == 'volley')])
+volley_ongoal = len(df_shots.loc[(df_shots['surface'] == 'volley') & ((df_shots['detail'] == 'on target') | (df_shots['detail'] == 'goal'))])
+
+shot_total = len(df_shots)
+ongoal_total = len(df_shots_ontarget) + len(df_shots_goal)
+
 # Create plot.
 (fig,ax) = createPitch(120,80,'yards','gray')
 
-foot_count1 = 0
-footog_count1 = 0
-foot_count2 = 0
-footog_count2 = 0
-head_count1 = 0
-headog_count1 = 0
-head_count2 = 0
-headog_count2 = 0
-volley_count1 = 0
-volleyog_count1 = 0
-volley_count2 = 0
-volleyog_count2 = 0
+ax.scatter(df_shots.loc[(df_shots['surface'] == 'foot') & (df_shots['detail'] == 'off target'), 'x1'],df_shots.loc[(df_shots['surface'] == 'foot') & (df_shots['detail'] == 'off target'), 'y1'],marker='v',s=50,edgecolor=disco,facecolor='none')
+ax.scatter(df_shots.loc[(df_shots['surface'] == 'foot') & (df_shots['detail'] == 'on target'), 'x1'],df_shots.loc[(df_shots['surface'] == 'foot') & (df_shots['detail'] == 'on target'), 'y1'],marker='v',s=50,edgecolor=disco,facecolor=disco)
+ax.scatter(df_shots.loc[(df_shots['surface'] == 'foot') & (df_shots['detail'] == 'goal'), 'x1'],df_shots.loc[(df_shots['surface'] == 'foot') & (df_shots['detail'] == 'goal'), 'y1'],marker='v',s=50,edgecolor=buttercup,facecolor=buttercup)
 
-goals1 = 0
-goals2 = 0
+ax.scatter(df_shots.loc[(df_shots['surface'] == 'head') & (df_shots['detail'] == 'off target'), 'x1'],df_shots.loc[(df_shots['surface'] == 'head') & (df_shots['detail'] == 'off target'), 'y1'],marker='o',s=50,edgecolor=disco,facecolor='none')
+ax.scatter(df_shots.loc[(df_shots['surface'] == 'head') & (df_shots['detail'] == 'on target'), 'x1'],df_shots.loc[(df_shots['surface'] == 'head') & (df_shots['detail'] == 'on target'), 'y1'],marker='o',s=50,edgecolor=disco,facecolor=disco)
+ax.scatter(df_shots.loc[(df_shots['surface'] == 'head') & (df_shots['detail'] == 'goal'), 'x1'],df_shots.loc[(df_shots['surface'] == 'head') & (df_shots['detail'] == 'goal'), 'y1'],marker='o',s=50,edgecolor=buttercup,facecolor=buttercup)
 
-for i,shot in df_shots.iterrows():
-    y1 = shot['y1']
-    x1 = shot['x1']
-    if shot['surface'] == 'foot':
-        if shot['half'] == 1:
-            foot_count1 += 1
-        else:
-            foot_count2 += 1
-        if shot['detail'] == 'off target' or shot['detail'] == 'blocked':
-            ax.scatter(x1,y1,s=80, marker='v', edgecolor=disco,facecolor='none',zorder=50) 
-        elif shot['detail'] == 'on target':
-            if shot['half'] == 1:
-                footog_count1 += 1
-            else:
-                footog_count2 += 1
-            ax.scatter(x1,y1,s=80, marker='v',color=disco,zorder=75)
-        elif shot['detail'] == 'goal':
-            if shot['half'] == 1:
-                goals1 += 1
-                footog_count1 += 1
-            else:
-                goals2 += 1
-                footog_count2 += 1
-            ax.scatter(x1,y1,s=150, marker='v',facecolor=buttercup,edgecolor='white',zorder=100)
-    elif shot['surface'] == 'head':
-        if shot['half'] == 1:
-            head_count1 += 1
-        else:
-            head_count2 +=1
-        if shot['detail'] == 'off target' or shot['detail'] == 'blocked':
-            ax.scatter(x1,y1,s=80, marker='o',edgecolor=disco,facecolor='none',zorder=50)
-        elif shot['detail'] == 'on target':
-            if shot['half'] == 1:
-                headog_count1 += 1
-            else:
-                headog_count2 += 1
-            ax.scatter(x1,y1,s=80, marker='o',color=disco,zorder=75)
-        elif shot['detail'] == 'goal':
-            if shot['half'] == 1:
-                goals1 += 1
-                headog_count1 += 1
-            else:
-                goals2 += 1
-                headog_count2 += 1
-            ax.scatter(x1,y1,s=150, marker='o',facecolor=buttercup,edgecolor='white',zorder=100)
-    elif shot['surface'] == 'volley':
-        if shot['half'] == 1:
-            volley_count1 += 1
-        else:
-            volley_count2 += 1
-        if shot['detail'] == 'off target' or shot['detail'] == 'blocked':
-            ax.scatter(x1,y1,s=80, marker='s',edgecolor=disco,facecolor='none',zorder=50) 
-        elif shot['detail'] == 'on target':
-            if shot['half'] == 1:
-                volleyog_count1 += 1
-            else:
-                volleyog_count2 += 1
-            ax.scatter(x1,y1,s=80, marker='s',color=disco,zorder=75)
-        elif shot['detail'] == 'goal':
-            if shot['half'] == 1:
-                goals1 += 1
-                volleyog_count1 += 1
-            else:
-                goals2 += 1
-                volleyog_count2 += 1
-            ax.scatter(x1,y1,s=150, marker='s',facecolor=buttercup,edgecolor='white',zorder=100)
+ax.scatter(df_shots.loc[(df_shots['surface'] == 'volley') & (df_shots['detail'] == 'off target'), 'x1'],df_shots.loc[(df_shots['surface'] == 'volley') & (df_shots['detail'] == 'off target'), 'y1'],marker='s',s=50,edgecolor=disco,facecolor='none')
+ax.scatter(df_shots.loc[(df_shots['surface'] == 'volley') & (df_shots['detail'] == 'on target'), 'x1'],df_shots.loc[(df_shots['surface'] == 'volley') & (df_shots['detail'] == 'on target'), 'y1'],marker='s',s=50,edgecolor=disco,facecolor=disco)
+ax.scatter(df_shots.loc[(df_shots['surface'] == 'volley') & (df_shots['detail'] == 'goal'), 'x1'],df_shots.loc[(df_shots['surface'] == 'volley') & (df_shots['detail'] == 'goal'), 'y1'],marker='s',s=50,edgecolor=buttercup,facecolor=buttercup)
 
 ax.scatter(5,5,s=50, marker='v',edgecolor='grey',facecolor='none',zorder=50)
 ax.scatter(5,10,s=50, marker='o',edgecolor='grey',facecolor='none',zorder=50)
@@ -291,34 +268,17 @@ ax.text(8,4,'foot',color='grey')
 ax.text(8,9,'head', color='grey')
 ax.text(33,9,'volley',color='grey')
 
-foot_count = foot_count1 + foot_count2
-head_count = head_count1 + head_count2
-volley_count= volley_count1 + volley_count2
-
-footog_count = footog_count1 + footog_count2
-headog_count = headog_count1 + headog_count2
-volleyog_count = volleyog_count1 + volleyog_count2
-
-half1_shots = foot_count1 + head_count1 + volley_count1
-half2_shots = foot_count2 + head_count2 + volley_count2
-
-half1_shotsog = headog_count1 + footog_count1 + volleyog_count1
-half2_shotsog = headog_count2 + footog_count2 + volleyog_count2  
-
-total_shots = foot_count + head_count + volley_count
-total_shotsog = headog_count + footog_count + volleyog_count 
-
 plt.title('Shots by Surface', size=18, pad=50)
-ax.text(60,97,'total (on goal): ' + str(total_shots) + ' (' + str(total_shotsog) + ')', horizontalalignment = 'center', fontsize = 10)
-ax.text(60,92,'foot: ' + str(foot_count) + ' (' + str(footog_count) + ')', horizontalalignment = 'center', fontsize = 10)
-ax.text(60,87,'head: ' + str(head_count) + ' (' + str(headog_count) + ')', horizontalalignment = 'center', fontsize = 10)
-ax.text(60,82,'volley: ' + str(volley_count) + ' (' + str(volleyog_count) + ')', horizontalalignment = 'center', fontsize = 10)
+ax.text(60,97,'total (on goal): ' + str(shot_total) + ' (' + str(ongoal_total) + ')', horizontalalignment = 'center', fontsize = 10)
+ax.text(60,92,'foot: ' + str(foot) + ' (' + str(foot_ongoal) + ')', horizontalalignment = 'center', fontsize = 10)
+ax.text(60,87,'head: ' + str(head) + ' (' + str(head_ongoal) + ')', horizontalalignment = 'center', fontsize = 10)
+ax.text(60,82,'volley: ' + str(volley) + ' (' + str(volley_ongoal) + ')', horizontalalignment = 'center', fontsize = 10)
 ax.text(30, 75, '1st Half', horizontalalignment = 'center', fontsize = 10)
 ax.text(90, 75, '2st Half', horizontalalignment = 'center', fontsize = 10)
   
-
 fig.savefig(game + '/shots2.png', dpi=300, bbox_inches='tight')
 plt.show()
+
 
 ###############################################################################
 ######################### Crosses Visuals #####################################
@@ -461,6 +421,46 @@ ax.text(15,66.67,'1',fontsize=24,alpha=0.5,va='center',ha='center',color='grey')
 
 plt.title('Progressive Dribbles',size=18,pad=10)
 fig.savefig(game + '/prog_dribbles.png', dpi=300, bbox_inches='tight')
+plt.show()
+
+######################### Long Passes #########################################
+
+(fig,ax) = createPitch(120,80,'yards','gray')
+
+for i,action in df_pass.iterrows():
+    if action['pass_type'] == 'long':
+        x1 = action['x1']
+        y1 = action['y1']
+        x2 = action['x2']
+        y2= action['y2']
+        if action['detail'] == 'complete':
+            ax.scatter(x1,y1,marker='o',s=20,color=oracle)
+            ax.annotate("", xy=(x2,y2), xytext=(x1,y1), arrowprops=dict(arrowstyle='->', color=oracle))
+        else:
+            ax.scatter(x1,y1,marker='o',s=20,color=oracle,alpha=0.3)
+            ax.annotate("", xy=(x2,y2), xytext=(x1,y1), arrowprops=dict(arrowstyle='->', color=oracle, alpha=0.3))
+
+ax.plot([30,30],[0,80],alpha=0.5,color='grey')
+ax.plot([90,90],[0,80],alpha=0.5,color='grey')
+ax.plot([0,120],[26.67,26.67],alpha=0.5,color='grey')
+ax.plot([0,120],[53.33,53.33],alpha=0.5,color='grey')
+ax.annotate("", xy=(55,5), xytext=(25,5), arrowprops=dict(arrowstyle='->'))
+ax.text(20,5,'play',va='center',ha='right')
+ax.text(105,13.33,'12',fontsize=24,alpha=0.5,va='center',ha='center',color='grey')
+ax.text(105,40,'11',fontsize=24,alpha=0.5,va='center',ha='center',color='grey')
+ax.text(105,66.67,'10',fontsize=24,alpha=0.5,va='center',ha='center',color='grey')
+ax.text(75,13.33,'9',fontsize=24,alpha=0.5,va='center',ha='center',color='grey')
+ax.text(75,40,'8',fontsize=24,alpha=0.5,va='center',ha='center',color='grey')
+ax.text(75,66.67,'7',fontsize=24,alpha=0.5,va='center',ha='center',color='grey')
+ax.text(45,13.33,'6',fontsize=24,alpha=0.5,va='center',ha='center',color='grey')
+ax.text(45,40,'5',fontsize=24,alpha=0.5,va='center',ha='center',color='grey')
+ax.text(45,66.67,'4',fontsize=24,alpha=0.5,va='center',ha='center',color='grey')
+ax.text(15,13.33,'3',fontsize=24,alpha=0.5,va='center',ha='center',color='grey')
+ax.text(15,40,'2',fontsize=24,alpha=0.5,va='center',ha='center',color='grey')
+ax.text(15,66.67,'1',fontsize=24,alpha=0.5,va='center',ha='center',color='grey')
+
+plt.title('Long Passes',size=18,pad=10)
+fig.savefig(game + '/long_passes.png', dpi=300, bbox_inches='tight')
 plt.show()
 
 ######################### Entrances into the Box ##############################
@@ -838,7 +838,7 @@ for k in range(0,seqnum):
                 ballwinx = np.append(ballwinx,df_seq['x1'][0])
                 ballwiny = np.append(ballwiny,df_seq['y1'][0])
     # Only plots chances that enter final third.         
-    if opp == 1 or final3 == 1: 
+    if opp == 1: 
         # Draw the pitch
         (fig,ax) = createPitch(120,80,'yards','gray')
         ax.plot([30,30],[0,80],ls='dashed',color='grey',zorder=0,alpha=0.5)
@@ -908,12 +908,12 @@ for k in range(0,seqnum):
                 if action['detail'] == 'complete':
                     x2 = df_seq['x1'][i+1]
                     y2 = df_seq['y1'][i+1]
-                    ax.plot([x1,x2],[y1,y2],color=oracle,zorder=25)
+                    ax.plot([x1,x2],[y1,y2],color=oracle,zorder=25, ls='dotted')
                     dist_pass = np.sqrt((x1-x2)**2+(y1-y2)**2)
                 else:
                     x2 = action['x2']
                     y2 = action['y2']
-                    ax.annotate("", xy=(x2,y2), xytext=(x1,y1), arrowprops=dict(arrowstyle='->',alpha=0.5, color=oracle))
+                    ax.annotate("", xy=(x2,y2), xytext=(x1,y1), arrowprops=dict(arrowstyle='->',alpha=0.5, color=oracle, ls='dotted'))
             elif (action['event'] == 'corner') or (action['event'] == 'free kick') or (action['event'] == 'goalie restart'):
                 ax.text(x1,y1,str(count),fontsize=4,horizontalalignment = 'center',verticalalignment = 'center',zorder=52+5*i)
                 ax.scatter(x1,y1,marker='o',s=60,edgecolor='black',facecolor='white',zorder=50+5*i)
@@ -993,10 +993,12 @@ for i,action in df.iterrows():
                 ax.scatter(x1,y1,marker='o',edgecolor=oracle,facecolor = oracle,s=30,zorder=30)
 ax.scatter(ballstartsx,ballstartsy,marker='o',s=40,edgecolor=fuzz,facecolor='white',zorder=40)
 ax.scatter(ballwinx,ballwiny,marker='o',s=40,edgecolor=fuzz,facecolor=fuzz,zorder=50)
+
 ax.plot([30,30],[0,80],alpha=0.5,color='grey')
 ax.plot([90,90],[0,80],alpha=0.5,color='grey')
 ax.plot([0,120],[26.67,26.67],alpha=0.5,color='grey')
 ax.plot([0,120],[53.33,53.33],alpha=0.5,color='grey')
+
 ax.annotate("", xy=(55,5), xytext=(25,5), arrowprops=dict(arrowstyle='->'))
 ax.text(20,5,'play',va='center',ha='right')
 ax.text(105,13.33,'12',fontsize=24,alpha=0.5,va='center',ha='center',color='grey')
@@ -1020,8 +1022,8 @@ ax.scatter(75,-5,marker='o',s=40,color=fuzz)
 ax.text(80,-5,'promising attack',va='center')
 
 
-plt.title('Sequence Starting Locations',size=18, pad=5)
-fig.savefig(game + '/seqtarts.png', dpi=300, bbox_inches='tight')
+plt.title('Possession Starting Locations',size=18, pad=5)
+fig.savefig(game + '/poss_starts.png', dpi=300, bbox_inches='tight')
 
 plt.show()
 
