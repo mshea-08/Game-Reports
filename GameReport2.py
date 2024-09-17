@@ -1132,6 +1132,126 @@ plt.title('Sequence Summary',size=18,pad=4)
 fig.savefig(game + '/seqtable.png', dpi=300, bbox_inches='tight')
 plt.show()
 
+###############################################################################
+############# Passes by Type Tables, Total Passes & Completion % ##############
+###############################################################################
+
+#for all types of passes, bin into zones
+hist_short_passes, xedges_short, yedges_short = np.histogram2d(df_short_pass['y1'], df_short_pass['x1'], bins=(3, 4), range=[[0, 80], [0, 120]])
+hist_medium_passes, xedges_medium, yedges_medium = np.histogram2d(df_medium_pass['y1'], df_medium_pass['x1'], bins=(3, 4), range=[[0, 80], [0, 120]])
+hist_long_passes, xedges_long, yedges_long = np.histogram2d(df_long_pass['y1'], df_long_pass['x1'], bins=(3, 4), range=[[0, 80], [0, 120]])
+
+#code for tables
+# Table to accompany histogram.
+(fig,ax) = plt.subplots()
+
+#draws line from [x1, x2] to [y1, y2]
+#draw horizontal lines
+ax.plot([0, 10], [6, 6], color='grey') #top line
+ax.plot([0, 10], [4.25, 4.25], color='grey') 
+ax.plot([0, 10], [2.5, 2.5], color='grey')   
+ax.plot([0, 10], [0.75, 0.75], color='grey')  
+ax.plot([0, 10], [-1, -1], color='grey') #bottom line
+
+#draw vertical lines
+ax.plot([0, 0], [6, -1], color='grey')   
+ax.plot([3.33, 3.33], [6, -1], color='grey')
+ax.plot([6.66, 6.66], [6, -1], color='grey')   
+ax.plot([10, 10], [6, -1], color='grey')      
+
+#adding first row labels (total and completion)
+ax.text(5.0, 5.125, 'Total Passes\n(Completed)', ha='center', va='center')
+ax.text(8.33, 5.125,'Completion %',ha='center',va='center')
+
+#populating the first column (pass type names)
+ax.text(1.665, 3.375,'short passes',ha='center',va='center')
+ax.text(1.665, 1.625,'medium passes',ha='center',va='center')
+ax.text(1.665, -0.125,'long passes',ha='center',va='center')
+
+#populating the second column (total passes)
+ax.text(5.0, 3.375, str(int(total_passes['short'])) + ' (' + str(int(completed_passes['short'])) + ')', ha='center', va='center')
+ax.text(5.0, 1.625, str(int(total_passes['medium'])) + ' (' + str(int(completed_passes['medium'])) + ')', ha='center', va='center')
+ax.text(5.0, -0.125, str(int(total_passes['long'])) + ' (' + str(int(completed_passes['long'])) + ')', ha='center', va='center')
+
+#populate the third column (completion percentage). rounded to 3 decimals.
+#left these as decimals but can change to percent if its easier to read
+ax.text(8.33, 3.375, round(completion_percent['short'], 3), ha='center', va='center')
+ax.text(8.33, 1.625, round(completion_percent['medium'], 3), ha='center', va='center')
+ax.text(8.33, -0.125, round(completion_percent['long'], 3), ha='center', va='center')
+
+plt.axis('off')
+plt.show()
+
+#####
+#table for LONG passes per zone 1-6
+(fig,ax) = plt.subplots()
+ax.plot([0,10],[6,6],color='grey')
+ax.plot([0,10],[5,5],color='grey')
+ax.plot([0,10],[4,4],color='grey')
+ax.plot([0,10],[3,3],color='grey')
+ax.plot([0,10],[2,2],color='grey')
+ax.plot([0,10],[1,1],color='grey')
+ax.plot([0,10],[0,0],color='grey')
+ax.plot([0,10],[-1,-1],color='grey')
+ax.plot([5,5],[6,-1],color='grey')
+ax.plot([0,0],[6,-1],color='grey')
+ax.plot([10,10],[6,-1],color='grey')
+
+#zone labels
+ax.text(2.5,5.5,'Zone',ha='center',va='center')
+ax.text(7.5,5.5,'Long Passes \n(Successful)',ha='center',va='center')
+ax.text(2.5,4.5,'1',ha='center',va='center')
+ax.text(2.5,3.5,'2',ha='center',va='center')
+ax.text(2.5,2.5,'3',ha='center',va='center')
+ax.text(2.5,1.5,'4',ha='center',va='center')
+ax.text(2.5,0.5,'5',ha='center',va='center')
+ax.text(2.5,-0.5,'6',ha='center',va='center')
+
+#medium passes #s
+ax.text(7.5, 4.5, str(int(hist_long_passes[0, 0])) + " (" + str(int(hist_long_passes_complete[0, 0])) + ")", ha='center', va='center') #zone 1
+ax.text(7.5, 3.5, str(int(hist_long_passes[1, 0])) + " (" + str(int(hist_long_passes_complete[1, 0])) + ")", ha='center', va='center') #zone 2
+ax.text(7.5, 2.5, str(int(hist_long_passes[2, 0])) + " (" + str(int(hist_long_passes_complete[2, 0])) + ")", ha='center', va='center') #zone 3
+ax.text(7.5, 1.5, str(int(hist_long_passes[0, 1])) + " (" + str(int(hist_long_passes_complete[0, 1])) + ")", ha='center', va='center') #zone 4
+ax.text(7.5, 0.5, str(int(hist_long_passes[1, 1])) + " (" + str(int(hist_long_passes_complete[1, 1])) + ")", ha='center', va='center') #zone 5
+ax.text(7.5, -0.5, str(int(hist_long_passes[2, 1])) + " (" + str(int(hist_long_passes_complete[2, 1])) + ")", ha='center', va='center') #zone 6
+
+plt.axis('off')
+plt.show()
+
+#table for LONG passes per zones 7-12
+(fig,ax) = plt.subplots()
+ax.plot([0,10],[6,6],color='grey')
+ax.plot([0,10],[5,5],color='grey')
+ax.plot([0,10],[4,4],color='grey')
+ax.plot([0,10],[3,3],color='grey')
+ax.plot([0,10],[2,2],color='grey')
+ax.plot([0,10],[1,1],color='grey')
+ax.plot([0,10],[0,0],color='grey')
+ax.plot([0,10],[-1,-1],color='grey')
+ax.plot([5,5],[6,-1],color='grey')
+ax.plot([0,0],[6,-1],color='grey')
+ax.plot([10,10],[6,-1],color='grey')
+
+#zone labels
+ax.text(2.5,5.5,'Zone',ha='center',va='center')
+ax.text(7.5,5.5,'Long Passes \n(Successful)',ha='center',va='center')
+ax.text(2.5,4.5,'7',ha='center',va='center')
+ax.text(2.5,3.5,'8',ha='center',va='center')
+ax.text(2.5,2.5,'9',ha='center',va='center')
+ax.text(2.5,1.5,'10',ha='center',va='center')
+ax.text(2.5,0.5,'11',ha='center',va='center')
+ax.text(2.5,-0.5,'12',ha='center',va='center')
+
+#long passes #s
+ax.text(7.5, 4.5, str(int(hist_long_passes[0, 2])) + " (" + str(int(hist_long_passes_complete[0, 2])) + ")", ha='center', va='center') #zone 1
+ax.text(7.5, 3.5, str(int(hist_long_passes[1, 2])) + " (" + str(int(hist_long_passes_complete[1, 2])) + ")", ha='center', va='center') #zone 2
+ax.text(7.5, 2.5, str(int(hist_long_passes[2, 2])) + " (" + str(int(hist_long_passes_complete[2, 2])) + ")", ha='center', va='center') #zone 3
+ax.text(7.5, 1.5, str(int(hist_long_passes[0, 3])) + " (" + str(int(hist_long_passes_complete[0, 3])) + ")", ha='center', va='center') #zone 4
+ax.text(7.5, 0.5, str(int(hist_long_passes[1, 3])) + " (" + str(int(hist_long_passes_complete[1, 3])) + ")", ha='center', va='center') #zone 5
+ax.text(7.5, -0.5, str(int(hist_long_passes[2, 3])) + " (" + str(int(hist_long_passes_complete[2, 3])) + ")", ha='center', va='center') #zone 6
+
+plt.axis('off')
+plt.show()
 
 
 
